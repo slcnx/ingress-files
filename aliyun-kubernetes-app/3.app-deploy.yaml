@@ -25,7 +25,6 @@ spec:
 #                    values:
 #                      - myapp-selector
 #              topologyKey: topology.diskplugin.csi.alibabacloud.com/zone
-      terminationGracePeriodSeconds: 300
       containers:
       - name: myapp-container
         image: registry.cn-beijing.aliyuncs.com/cloudcenter-ops/nginx:1.22.0
@@ -89,6 +88,9 @@ spec:
       - name: nginx-config
         configMap:
           name:  nginx.conf
+      restartPolicy: Always
+      securityContext: {}
+      terminationGracePeriodSeconds: 300
 ---
 kind: Service
 apiVersion: v1
