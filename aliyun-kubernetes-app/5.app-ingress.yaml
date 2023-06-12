@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/service-weight: ""
+  name: myapp
+  namespace: myserver
+spec:
+  ingressClassName: nginx
+  rules:
+  # >- 多行转1行
+  - host: >- 
+      myapp.cd5bc033ed86b43598b57b47be6855978.cn-hangzhou.alicontainer.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: myapp
+            port:
+              number: 80
+        path: /
+        pathType: ImplementationSpecific
