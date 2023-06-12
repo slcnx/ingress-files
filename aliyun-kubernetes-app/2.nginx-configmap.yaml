@@ -1,0 +1,99 @@
+apiVersion: v1
+data:
+  nginx.conf: |
+      user  nginx nginx;
+
+      worker_processes auto;
+      error_log stderr;
+      #daemon off;
+      events {
+        worker_connections 1024;
+      }
+      http {
+        ##
+        # Basic Settings
+        ##
+         # sendfile和tcp连接设置
+          sendfile            on;
+          tcp_nopush          on;
+          tcp_nodelay         on;
+          keepalive_timeout   65;
+          types_hash_max_size 2048;
+
+        server_names_hash_bucket_size 64;
+         # 配置文件包含和媒体文件包含
+          include             mime.types;
+          default_type        application/octet-stream;
+
+        ##
+        # Logging Settings
+        ##
+        log_format access_json escape=json '{"nginx_timestamp":"$time_iso8601","tcp_xff":"$proxy_protocol_addr","clientip":"$remote_addr","nginx_host":"$server_addr","host":"$http_host","request":"$request","url":"$request_uri","upstreamhost":"$upstream_addr","status":"$status","body_bytes_sent":"$body_bytes_sent","request_time":"$request_time","upstream_response_time":"$upstream_response_time","xff":"$http_x_forwarded_for","referer":"$http_referer","http_user_agent":"$http_user_agent","request_length":"$request_length","request_method":"$request_method"}';
+
+
+        access_log /dev/stdout access_json;
+        ##
+        # Gzip Settings
+        ##
+        gzip on;
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_buffers 16 8k;
+        gzip_http_version 1.1;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+         # 基本安全设置
+          ## 1.不返回版本号
+          server_tokens       off;
+          ## 2.只允许同源的fram/iframe/object加载,避免劫持
+          add_header          X-Frame-Options SAMEORIGIN;
+          ## 3.关闭资源类型猜想,避免资源代码攻击
+          add_header          X-Content-Type-Options nosniff;
+          ## 4.开启XSS过滤,若检查到XSS攻击,停止渲染页面
+          add_header          X-XSS-Protection "1; mode=block";
+
+         # 防DDOS攻击配置
+          ## 2.同一IP总共最多存在50个并发
+          limit_conn_zone $binary_remote_addr zone=TCLZone:20m ;
+          limit_conn_log_level notice;
+          limit_conn  TCLZone  50;
+          ## 3.同一IP每秒最多处理10个请求,5个排队
+          limit_req_zone $binary_remote_addr  zone=CLZone:20m rate=10r/s;
+          limit_req_log_level notice;
+          limit_req zone=CLZone burst=5 nodelay;
+
+        ##
+        # Virtual Host Configs
+        ##
+
+        server {
+          listen 80 default_server;
+          server_name _;
+          root /usr/share/nginx/html/;
+
+          location / {
+            if (!-e $request_filename) {
+              rewrite ^/(.*) /index.html last;
+            }
+            try_files $uri $uri/ =404;
+          }
+          location /health {
+              access_log off;
+                  return 200;
+          }
+          # pass jsp scripts to tomcat server
+          #    location ~ \.jsp$ {
+          #         proxy_pass  http://tomcat_webserver;
+          #         proxy_set_header   Host    $host;
+          #         proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+          #         proxy_set_header X-Real-IP $remote_addr;
+          #    }
+        }
+      }
+
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: nginx.conf
+  namespace: myserver

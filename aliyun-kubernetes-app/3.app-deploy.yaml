@@ -1,0 +1,109 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: myapp-label
+  name: myapp
+  namespace: myserver
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp-selector
+  template:
+    metadata:
+      labels:
+        app: myapp-selector
+    spec:
+#      affinity:
+#        podAntiAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            - labelSelector:
+#                matchExpressions:
+#                  - key: app
+#                    operator: In
+#                    values:
+#                      - myapp-selector
+#              topologyKey: topology.diskplugin.csi.alibabacloud.com/zone
+      terminationGracePeriodSeconds: 300
+      containers:
+      - name: myapp-container
+        image: registry.cn-beijing.aliyuncs.com/cloudcenter-ops/nginx:1.22.0
+        imagePullPolicy: IfNotPresent
+        #imagePullPolicy: Always
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        startupProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health/
+            port: 80
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 10
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - "/bin/sh"
+              - "-c"
+              - "sleep 5; nginx -s quit; while [ -f /var/run/nginx.pid ]; do sleep 1; done"
+        volumeMounts:
+        - name: nginx-config
+          mountPath:  /etc/nginx/nginx.conf
+          readOnly: true
+          subPath: nginx.conf
+      volumes:
+      - name: nginx-config
+        configMap:
+          name:  nginx.conf
+---
+kind: Service
+apiVersion: v1
+metadata:
+  labels:
+    app: myapp-label
+  name: myapp
+  namespace: myserver
+spec:
+  #type: NodePort
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+    #nodePort: 40003
+  selector:
+    app: myapp-selector
