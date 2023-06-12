@@ -49,6 +49,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        # 前缀：aliyun_logs_      名称：myapp    会自动写到SLS中
+        #- name: aliyun_logs_myapp
+        #  value: stdout
         ports:
         - name: http
           containerPort: 80
